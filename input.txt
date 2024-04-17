@@ -1,0 +1,11 @@
+houmi func (num)
+lesss_go
+    num1 aka num * 2;
+    num2 aka 1.5;
+    num aka num1 + num2;
+    glock (num);
+stop_that_shit
+
+megera (x);
+var aka func (x);
+freestyle (var);
