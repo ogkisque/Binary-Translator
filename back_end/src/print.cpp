@@ -1,52 +1,92 @@
 #include "print.h"
 #include "operators.h"
 
-Error print_trees (const Functions* funcs, FILE* file)
+Error print_funcs (const Functions* funcs, FILE* file)
 {
+    if (!file)
+        RETURN_ERROR(NULL_POINTER, "Null pointer of file");
+    if (!funcs)
+        RETURN_ERROR(NULL_POINTER, "Null pointer of funcs");
+
     Error error = {};
     IfWhileId if_while_id = {};
 
-    fprintf (file, "jmp main\n\n");
+    error = print_header (file);
+    PARSE_ERROR_WITHOUT_TREE(error);
+
     for (size_t i = 0; i < funcs->num_funcs; i++)
     {
-        error = print_tree (funcs->funcs[i], &if_while_id, file);
+        error = print_func_decl (funcs->funcs[i], &if_while_id, file);
         PARSE_ERROR_WITHOUT_TREE(error);
         fprintf (file, "\n");
     }
-
-    fprintf (file, "hlt");
+    
     RETURN_ERROR(CORRECT, "");
 }
 
-Error print_tree (const Function* func, IfWhileId* if_while_id, FILE* file)
+Error print_header (FILE* file)
 {
-    Error error = {};
-    fprintf (file, ":%s\n", func->root->name);
+    if (!file)
+        RETURN_ERROR(NULL_POINTER, "Null pointer of file");
 
-    error = print_args (func->root->left, file);
-    PARSE_ERROR_WITHOUT_TREE(error);
-
-    error = print_commands (func->root->right, if_while_id, file);
-    PARSE_ERROR_WITHOUT_TREE(error);
+    fprintf (file,  LLVM_HEADER);
 
     RETURN_ERROR(CORRECT, "");
 }
 
-Error print_args (const Node* node, FILE* file)
+Error print_func_decl (Function* func, IfWhileId* if_while_id, FILE* file)
 {
+    if (!file)
+        RETURN_ERROR(NULL_POINTER, "Null pointer of file");
+    if (!func)
+        RETURN_ERROR(NULL_POINTER, "Null pointer of func");
+    
+    func->curr_var_id = 0;
     Error error = {};
+
+    if (strcmp (func->root->name, "main") == 0)
+        fprintf (file, "%s%s(", LLVM_MAIN_HEADER, func->root->name);
+    else
+        fprintf (file, "%s%s(", LLVM_FUNC_HEADER, func->root->name);
+
+    if (func->root->left)
+    {
+        error = print_args (func->root->left, func, file);
+        PARSE_ERROR_WITHOUT_TREE(error);
+    }
+
+    fprintf (file, ") #1\n{\n");
+
+    error = print_commands (func->root->right, if_while_id, func, file);
+    PARSE_ERROR_WITHOUT_TREE(error);
+
+    fprintf (file, "}\n\n");
+
+    RETURN_ERROR(CORRECT, "");
+}
+
+Error print_args (const Node* node, Function* func, FILE* file)
+{
+    if (!file)
+        RETURN_ERROR(NULL_POINTER, "Null pointer of file");
+    if (!func)
+        RETURN_ERROR(NULL_POINTER, "Null pointer of func");
     if (!node)
-        RETURN_ERROR(CORRECT, "");
+        RETURN_ERROR(NULL_POINTER, "Null pointer of node");
 
-    error = print_args (node->right, file);
-    PARSE_ERROR_WITHOUT_TREE(error);
+    fprintf (file, "double noundef %%%s", node->left->name);
 
-    fprintf (file, "pop [%d]\n", (int) node->left->value);
+    if (node->right)
+    {
+        fprintf (file, ", ");
+        Error error = print_args (node->right, func, file);
+        PARSE_ERROR_WITHOUT_TREE(error);
+    }
 
     RETURN_ERROR(CORRECT, "");
 }
 
-Error print_commands (const Node* node, IfWhileId* if_while_id, FILE* file)
+Error print_commands (const Node* node, IfWhileId* if_while_id, Function* func, FILE* file)
 {
     if (!node)
         RETURN_ERROR(CORRECT, "");
@@ -57,31 +97,31 @@ Error print_commands (const Node* node, IfWhileId* if_while_id, FILE* file)
     {
         if ((int) node->value == END_STR)
         {
-            error = print_commands (node->left, if_while_id, file);
+            error = print_commands (node->left, if_while_id, func, file);
             PARSE_ERROR_WITHOUT_TREE(error);
 
-            error = print_commands (node->right, if_while_id, file);
+            error = print_commands (node->right, if_while_id, func, file);
             PARSE_ERROR_WITHOUT_TREE(error);
 
             RETURN_ERROR(CORRECT, "");
         }
 
-        error = print_input_output_return (node, &is_print, file);
+        error = print_input_output_return (node, &is_print, func, file);
         PARSE_ERROR_WITHOUT_TREE(error);
         if (is_print)
             RETURN_ERROR(CORRECT, "");
 
-        error = print_assign (node, &is_print, file);
+        error = print_assign (node, &is_print, func, file);
         PARSE_ERROR_WITHOUT_TREE(error);
         if (is_print)
             RETURN_ERROR(CORRECT, "");
 
-        error = print_if (node, if_while_id, &is_print, file);
+        error = print_if (node, if_while_id, &is_print, func, file);
         PARSE_ERROR_WITHOUT_TREE(error);
         if (is_print)
             RETURN_ERROR(CORRECT, "");
 
-        error = print_while (node, if_while_id, &is_print, file);
+        error = print_while (node, if_while_id, &is_print, func, file);
         PARSE_ERROR_WITHOUT_TREE(error);
         if (is_print)
             RETURN_ERROR(CORRECT, "");
@@ -90,35 +130,36 @@ Error print_commands (const Node* node, IfWhileId* if_while_id, FILE* file)
     RETURN_ERROR(SYNTAX_ERR, "Unknown operator");
 }
 
-Error print_input_output_return (const Node* node, bool* is_print, FILE* file)
+Error print_input_output_return (const Node* node, bool* is_print, Function* func, FILE* file)
 {
     *is_print = false;
 
     if ((int) node->value == INPUT_VAR)
     {
-        fprintf (file, "in\n");
-        fprintf (file, "pop [%d]\n", (int) node->right->value);
+        fprintf (file, "%%%d = ", func->curr_var_id);
+        fprintf (file, LLVM_CALL_SCANF, node->right->name);
+        func->curr_var_id++;
         *is_print = true;
     }
 
     if ((int) node->value == PRINT)
     {
-        fprintf (file, "push [%d]\n", (int) node->right->value);
-        fprintf (file, "out\n");
+        fprintf (file, "%%%d = ", func->curr_var_id);
+        fprintf (file, LLVM_CALL_PRINTF, node->right->name);
+        func->curr_var_id++;
         *is_print = true;
     }
 
     if ((int) node->value == RET)
     {
-        fprintf (file, "push [%d]\n", (int) node->right->value);
-        fprintf (file, "ret\n");
+        fprintf (file, "ret double %%%s\n", node->right->name);
         *is_print = true;
     }
 
     RETURN_ERROR(CORRECT, "");
 }
 
-Error print_assign (const Node* node, bool* is_print, FILE* file)
+Error print_assign (const Node* node, bool* is_print, Function* func, FILE* file)
 {
     if ((int) node->value != ASSIGN)
     {
@@ -129,14 +170,16 @@ Error print_assign (const Node* node, bool* is_print, FILE* file)
     *is_print = true;
     Error error = {};
 
-    error = print_expression (node->left, file);
+    error = print_expression (node->left, func, file);
     PARSE_ERROR_WITHOUT_TREE(error);
-    fprintf (file, "pop [%d]\n", (int) node->right->value);
+
+    error = print_store_var (node->right->name, func, file);
+    PARSE_ERROR_WITHOUT_TREE(error);
 
     RETURN_ERROR(CORRECT, "");
 }
 
-Error print_expression (const Node* node, FILE* file)
+Error print_expression (const Node* node, Function* func, FILE* file)
 {
     if (!node)
         RETURN_ERROR(CORRECT, "");
@@ -154,14 +197,14 @@ Error print_expression (const Node* node, FILE* file)
     }
     else if (node->type == FUNC)
     {
-        error = print_func_call (node, file);
+        error = print_func_call (node, func, file);
         PARSE_ERROR_WITHOUT_TREE(error);
         RETURN_ERROR(CORRECT, "");
     }
 
-    error = print_expression (node->left, file);
+    error = print_expression (node->left, func, file);
     PARSE_ERROR_WITHOUT_TREE(error);
-    error = print_expression (node->right, file);
+    error = print_expression (node->right, func, file);
     PARSE_ERROR_WITHOUT_TREE(error);
 
 
@@ -177,13 +220,18 @@ Error print_expression (const Node* node, FILE* file)
     RETURN_ERROR(CORRECT, "");
 }
 
-Error print_func_call (const Node* node, FILE* file)
+Error print_func_call (const Node* node, Function* func, FILE* file)
 {
     Error error = {};
 
+    fprintf (file, "%%%d = call noundef double @%s(", func->curr_var_id, node->name);
+
     error = print_args_call (node->left, file);
     PARSE_ERROR_WITHOUT_TREE(error);
-    fprintf (file, "call %s\n", node->name);
+
+    fprintf (file, ")\n");
+
+    func->curr_var_id++;
 
     RETURN_ERROR(CORRECT, "");
 }
@@ -191,19 +239,22 @@ Error print_func_call (const Node* node, FILE* file)
 Error print_args_call (const Node* node, FILE* file)
 {
     Error error = {};
-    if (!node)
+
+    if (node->right)
+    {
+        fprintf (file, "double noundef %%%s, ", node->left->name);
+        error = print_args_call (node->right, file);
+        PARSE_ERROR_WITHOUT_TREE(error);
         RETURN_ERROR(CORRECT, "");
-
-    error = print_expression (node->left, file);
-    PARSE_ERROR_WITHOUT_TREE(error);
-
-    error = print_args_call (node->right, file);
-    PARSE_ERROR_WITHOUT_TREE(error);
-
-    RETURN_ERROR(CORRECT, "");
+    }
+    else
+    {
+        fprintf (file, "double noundef %%%s", node->left->name);
+        RETURN_ERROR(CORRECT, "");
+    }
 }
 
-Error print_if (const Node* node, IfWhileId* if_while_id, bool* is_print, FILE* file)
+Error print_if (const Node* node, IfWhileId* if_while_id, bool* is_print, Function* func, FILE* file)
 {
     if ((int) node->value != IF)
     {
@@ -214,10 +265,10 @@ Error print_if (const Node* node, IfWhileId* if_while_id, bool* is_print, FILE* 
     *is_print = true;
     Error error = {};
 
-    error = print_expression (node->left->left, file);
+    error = print_expression (node->left->left, func, file);
     PARSE_ERROR_WITHOUT_TREE(error);
 
-    error = print_expression (node->left->right, file);
+    error = print_expression (node->left->right, func, file);
     PARSE_ERROR_WITHOUT_TREE(error);
 
     for (size_t i = 0; i < NUM_OPERS; i++)
@@ -228,14 +279,14 @@ Error print_if (const Node* node, IfWhileId* if_while_id, bool* is_print, FILE* 
     if_while_id->num_if++;
     fprintf (file, "if%lld\n", if_id);
 
-    error = print_commands (node->right, if_while_id, file);
+    error = print_commands (node->right, if_while_id, func, file);
     PARSE_ERROR_WITHOUT_TREE(error);
 
     fprintf (file, ":if%lld\n", if_id);
     RETURN_ERROR(CORRECT, "");
 }
 
-Error print_while (const Node* node, IfWhileId* if_while_id, bool* is_print, FILE* file)
+Error print_while (const Node* node, IfWhileId* if_while_id, bool* is_print, Function* func, FILE* file)
 {
     if ((int) node->value != WHILE)
     {
@@ -250,10 +301,10 @@ Error print_while (const Node* node, IfWhileId* if_while_id, bool* is_print, FIL
 
     fprintf (file, ":while%lld\n", while_id);
 
-    error = print_expression (node->left->left, file);
+    error = print_expression (node->left->left, func, file);
     PARSE_ERROR_WITHOUT_TREE(error);
 
-    error = print_expression (node->left->right, file);
+    error = print_expression (node->left->right, func, file);
     PARSE_ERROR_WITHOUT_TREE(error);
 
     for (size_t i = 0; i < NUM_OPERS; i++)
@@ -262,10 +313,21 @@ Error print_while (const Node* node, IfWhileId* if_while_id, bool* is_print, FIL
 
     fprintf (file, "end_while%lld\n", while_id);
 
-    error = print_commands (node->right, if_while_id, file);
+    error = print_commands (node->right, if_while_id, func, file);
     PARSE_ERROR_WITHOUT_TREE(error);
 
     fprintf (file, "jmp while%lld\n", while_id);
     fprintf (file, ":end_while%lld\n", while_id);
+    RETURN_ERROR(CORRECT, "");
+}
+
+Error print_store_var (const char* var_name, Function* func, FILE* file)
+{
+    if (!var_name)
+        RETURN_ERROR(NULL_POINTER, "Null pointer of name of var");
+    if (!file)
+        RETURN_ERROR(NULL_POINTER, "Null pointer of file");
+
+    fprintf (file, "store double %%%d, double* %%%s, allign 8\n", func->curr_var_id - 1, var_name);
     RETURN_ERROR(CORRECT, "");
 }

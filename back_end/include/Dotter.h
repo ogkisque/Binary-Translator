@@ -299,7 +299,7 @@ void dtLink (const int FromNode, const int ToNode, const char Label [] = "", con
 //! @param Type - ��� (jpg, bmp, ...)
 //! @param Show - ���������� ���� ����� ��������, ��� ���
 //===============================================================================
-void dtRender (const char From [], const char To [] = "Graph.jpg", const char Type [] = "jpg", const bool Show = true);
+void dtRender (const char From [], const char To [] = "data/Graph.jpg", const char Type [] = "jpg", const bool Show = true);
 
 //==============================================================================
 

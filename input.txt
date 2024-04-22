@@ -6,6 +6,15 @@ lesss_go
     glock (num);
 stop_that_shit
 
+houmi func1 (num)
+lesss_go
+    num1 aka 3 * (num + 2);
+    num2 aka (num1 / 3) + 9;
+    num aka num1 * num2;
+    glock (num);
+stop_that_shit
+
 megera (x);
 var aka func (x);
-freestyle (var);
+var1 aka func1 (var);
+freestyle (var1);

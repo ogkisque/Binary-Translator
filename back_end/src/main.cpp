@@ -13,7 +13,7 @@
         }
 
 const char*     INPUT_NAME              = "../middle.txt";
-const char*     OUTPUT_NAME             = "../asm.txt";
+const char*     OUTPUT_NAME             = "../llvm.ll";
 
 int main ()
 {
@@ -27,7 +27,7 @@ int main ()
     error = read_trees (&funcs, &str);
 
     FILE* file_output = fopen (OUTPUT_NAME, "w");
-    error = print_trees (&funcs, file_output);
+    error = print_funcs (&funcs, file_output);
     fclose (file_output);
 
     funcs_dtor (&funcs);

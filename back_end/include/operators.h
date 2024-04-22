@@ -14,10 +14,10 @@ struct Operator
     const char* name_to_print_asm;
 };
 
-const Operator OPERATORS[] = {  {"+",               OPER, ADD,          "+",        "add"},
-                                {"-",               OPER, SUB,          "-",        "sub"},
-                                {"*",               OPER, MUL,          "*",        "mul"},
-                                {"/",               OPER, DIV,          "/",        "div"},
+const Operator OPERATORS[] = {  {"+",               OPER, ADD,          "+",        "fadd"},
+                                {"-",               OPER, SUB,          "-",        "fsub"},
+                                {"*",               OPER, MUL,          "*",        "fmul"},
+                                {"/",               OPER, DIV,          "/",        "fdiv"},
                                 {"(",               OPER, LBRAC,        "(",        NULL},
                                 {")",               OPER, RBRAC,        ")",        NULL},
                                 {"sin",             OPER, SIN,          "sin",      "sin"},

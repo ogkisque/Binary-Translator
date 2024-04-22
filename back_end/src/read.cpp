@@ -22,7 +22,7 @@ Error read_trees (Functions* funcs, ReadStr* str)
             funcs->num_funcs++;
     }
 
-    //tree_graph_dump_without_error (funcs->funcs[0]->root);
+    tree_graph_dump_without_error (funcs->funcs[1]->root);
 
     RETURN_ERROR(CORRECT, "");
 }
@@ -279,30 +279,33 @@ bool read_num (Node** node, char* text)
 {
     int mul = 1;
     if (text[0] == '-')
+    {
+        text++;
         mul = -1;
-
-    if (mul == -1)
-    {
-        if ('0' <= text[1] && text[1] <= '9')
-        {
-            int id = 0;
-            id = get_id (text + 1);
-
-            (*node) = _NUM(id * -1);
-            return true;
-        }
-        return false;
     }
-    else
-    {
-        if ('0' <= text[0] && text[0] <= '9')
-        {
-            int id = 0;
-            id = get_id (text);
 
-            (*node) = _NUM(id);
-            return true;
-        }
+    if ('0' > *text || *text > '9')
         return false;
+
+    int id1 = get_id (text);
+    double id = (double) id1;
+
+    for (; '0' <= *text && *text <= '9'; text++) ;
+
+    if (*text == '.')
+    {
+        text++;
+        int id2 = get_id (text);
+
+        int count = 0;
+        for (; '0' <= *text && *text <= '9'; text++, count++) ;
+        int st = 1;
+        for (int i = 0; i < count; i++)
+            st *= 10;
+
+        id += (double) id2 / st;
     }
+
+    (*node) = _NUM(id * mul);
+    return true;
 }

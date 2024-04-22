@@ -16,11 +16,7 @@ Error nodes_read (Function* main, Functions* funcs, Tokens* tokens, ReadStr* str
     error = get_opers (&(main->root), tokens, &(main->elems), funcs);
     PARSE_ERROR_STR(str, error);
 
-    if (funcs->num_funcs == 0)
-        main->offset = 0;
-    else
-        main->offset = funcs->funcs[funcs->num_funcs - 1].elems.num_vars + funcs->funcs[funcs->num_funcs - 1].offset;
-
+    main->offset = 0;
     RETURN_ERROR(CORRECT, "");
 }
 
@@ -37,11 +33,8 @@ Error get_funcs (Functions* funcs, Tokens* tokens)
         error = get_func_declaration (&(funcs->funcs[i]), tokens, funcs, &is_read);
         PARSE_ERROR_STR_NO_DUMP(error);
 
-        if (i == 0)
-            funcs->funcs[i].offset = 0;
-        else
-            funcs->funcs[i].offset = funcs->funcs[i - 1].elems.num_vars + funcs->funcs[i - 1].offset;
-
+        funcs->funcs[i].offset = 0;
+        
         if (!is_read)
             RETURN_ERROR(SYNTAX_ERR, "The number of declared functions is less than the number of called functions");
     }

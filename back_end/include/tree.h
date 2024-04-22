@@ -169,6 +169,7 @@ struct Function
     Elements    elems;
     size_t      offset;
     int         id;
+    int         curr_var_id;
 };
 
 struct Functions
