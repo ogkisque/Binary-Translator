@@ -1,20 +1,10 @@
-houmi func (num)
+megera (num);
+fact aka 1;
+
+smoke (num > 1)
 lesss_go
-    num1 aka num * 2;
-    num2 aka 1.5;
-    num1 aka num1 + num2;
-    glock (num1);
+    fact aka fact * num;
+    num aka num - 1;
 stop_that_shit
 
-houmi func1 (num)
-lesss_go
-    num1 aka 3 * (num + 2);
-    num2 aka (num1 / 3) + 9;
-    num3 aka num1 * num2;
-    glock (num2);
-stop_that_shit
-
-megera (x);
-var aka func (x);
-var1 aka func1 (var);
-freestyle (var1);
+freestyle (fact);

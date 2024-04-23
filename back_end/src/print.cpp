@@ -375,26 +375,39 @@ Error print_if (const Node* node, IfWhileId* if_while_id, bool* is_print, int* a
     *is_print = true;
     Error error = {};
 
-    int var = 0;
-
-    error = print_expression (node->left->left, func, &var, file);
+    int var1 = 0;
+    error = print_expression (node->left->left, func, &var1, file);
     PARSE_ERROR_WITHOUT_TREE(error);
 
-    error = print_expression (node->left->right, func, &var, file);
+    int var2 = 0;
+    error = print_expression (node->left->right, func, &var2, file);
     PARSE_ERROR_WITHOUT_TREE(error);
+
+    fprintf (file, "%%%d = load double, double* %%%d, align 8\n", func->curr_var_id, var1);
+    var1 = func->curr_var_id;
+    func->curr_var_id++;
+    fprintf (file, "%%%d = load double, double* %%%d, align 8\n", func->curr_var_id, var2);
+    var2 = func->curr_var_id;
+    func->curr_var_id++;
+
+    fprintf (file, "%%%d = fcmp ", func->curr_var_id);
+    func->curr_var_id++;
 
     for (size_t i = 0; i < NUM_OPERS; i++)
         if ((int) node->left->value == OPERATORS[i].id)
-            fprintf (file, "%s ", OPERATORS[i].name_to_print_asm);
+            fprintf (file, "%s double %%%d, %%%d\n", OPERATORS[i].name_to_print_asm, var1, var2);
 
-    size_t if_id = if_while_id->num_if;
+    int num_if = if_while_id->num_if;
     if_while_id->num_if++;
-    fprintf (file, "if%lld\n", if_id);
+    fprintf (file, "br i1 %%%d, label %%if%d, label %%end_if%d\n", func->curr_var_id - 1, num_if, num_if);
+
+    fprintf (file, "if%d:\n", num_if);
 
     error = print_commands (node->right, if_while_id, alloc_vars, func, file);
     PARSE_ERROR_WITHOUT_TREE(error);
 
-    fprintf (file, ":if%lld\n", if_id);
+    fprintf (file, "br label %%end_if%d\n", num_if);
+    fprintf (file, "end_if%d:\n", num_if);
     RETURN_ERROR(CORRECT, "");
 }
 
@@ -408,30 +421,42 @@ Error print_while (const Node* node, IfWhileId* if_while_id, bool* is_print, int
 
     *is_print = true;
     Error error = {};
-    size_t while_id = if_while_id->num_while;
+    int num_while = if_while_id->num_while;
     if_while_id->num_while++;
 
-    fprintf (file, ":while%lld\n", while_id);
+    fprintf (file, "br label %%while%d\n", num_while);
+    fprintf (file, "while%d:\n", num_while);
 
-    int var = 0;
-
-    error = print_expression (node->left->left, func, &var, file);
+    int var1 = 0;
+    error = print_expression (node->left->left, func, &var1, file);
     PARSE_ERROR_WITHOUT_TREE(error);
 
-    error = print_expression (node->left->right, func, &var, file);
+    int var2 = 0;
+    error = print_expression (node->left->right, func, &var2, file);
     PARSE_ERROR_WITHOUT_TREE(error);
+
+    fprintf (file, "%%%d = load double, double* %%%d, align 8\n", func->curr_var_id, var1);
+    var1 = func->curr_var_id;
+    func->curr_var_id++;
+    fprintf (file, "%%%d = load double, double* %%%d, align 8\n", func->curr_var_id, var2);
+    var2 = func->curr_var_id;
+    func->curr_var_id++;
+
+    fprintf (file, "%%%d = fcmp ", func->curr_var_id);
+    func->curr_var_id++;
 
     for (size_t i = 0; i < NUM_OPERS; i++)
         if ((int) node->left->value == OPERATORS[i].id)
-            fprintf (file, "%s ", OPERATORS[i].name_to_print_asm);
+            fprintf (file, "%s double %%%d, %%%d\n", OPERATORS[i].name_to_print_asm, var1, var2);
 
-    fprintf (file, "end_while%lld\n", while_id);
+    fprintf (file, "br i1 %%%d, label %%body_while%d, label %%end_while%d\n", func->curr_var_id - 1, num_while, num_while);
+    fprintf (file, "body_while%d:\n", num_while);
 
     error = print_commands (node->right, if_while_id, alloc_vars, func, file);
     PARSE_ERROR_WITHOUT_TREE(error);
 
-    fprintf (file, "jmp while%lld\n", while_id);
-    fprintf (file, ":end_while%lld\n", while_id);
+    fprintf (file, "br label %%while%d\n", num_while);
+    fprintf (file, "end_while%d:\n", num_while);
     RETURN_ERROR(CORRECT, "");
 }
 
