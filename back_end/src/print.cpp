@@ -54,7 +54,7 @@ Error print_func_decl (Function* func, IfWhileId* if_while_id, FILE* file)
         PARSE_ERROR_WITHOUT_TREE(error);
     }
 
-    fprintf (file, ") #1\n{\n");
+    fprintf (file, ")\n{\n");
 
     int alloc_vars[MAX_NUM_VARS] = {};
 
@@ -83,7 +83,7 @@ Error print_args (const Node* node, Function* func, FILE* file)
     if (!node)
         RETURN_ERROR(NULL_POINTER, "Null pointer of node");
 
-    fprintf (file, "double noundef %%%s", node->left->name);
+    fprintf (file, "double %%%s", node->left->name);
 
     if (node->right)
     {
@@ -258,13 +258,13 @@ Error print_expression (const Node* node, Function* func, int* var, FILE* file)
         func->curr_var_id++;
 
         for (size_t i = 0; i < NUM_OPERS; i++)
-        if ((int) node->value == OPERATORS[i].id)
-        {
-            if (OPERATORS[i].name_to_print_asm)
-                fprintf (file, "%s ", OPERATORS[i].name_to_print_asm);
-            else
-                RETURN_ERROR(SYNTAX_ERR, "Assembler don't know this operator");
-        }
+            if ((int) node->value == OPERATORS[i].id)
+            {
+                if (OPERATORS[i].name_to_print_asm)
+                    fprintf (file, "%s ", OPERATORS[i].name_to_print_asm);
+                else
+                    RETURN_ERROR(SYNTAX_ERR, "Assembler don't know this operator");
+            }
 
         fprintf (file, "double %%%d, %%%d\n", var1, var2);
 
@@ -314,7 +314,7 @@ Error print_func_call (const Node* node, int* var, Function* func, FILE* file)
     error = print_args_call_load (node->left, func, file);
     PARSE_ERROR_WITHOUT_TREE(error);
 
-    fprintf (file, "%%%d = call noundef double @%s(", func->curr_var_id, node->name);
+    fprintf (file, "%%%d = call double @%s(", func->curr_var_id, node->name);
     func->curr_var_id++;
 
     error = print_args_call (node->left, num_var0, func, file);
