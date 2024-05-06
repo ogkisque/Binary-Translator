@@ -104,8 +104,8 @@ Error print_args_store (const Node* node, int* alloc_vars, Function* func, FILE*
     if (!node)
         RETURN_ERROR(NULL_POINTER, "Null pointer of node");
 
-    fprintf (file, "%%%sp = alloca double, align 8\n", node->left->name);
-    fprintf (file, "store double %%%s, double* %%%sp, align 8\n", node->left->name, node->left->name);
+    print_alloca_var (file, node->left->name);
+    print_store_var_var (file, node->left->name, node->left->name);
     alloc_vars[get_num_var(node->left->name)] = 1;
 
     if (node->right)
@@ -169,7 +169,7 @@ Error print_input_output_return (const Node* node, int* alloc_vars, bool* is_pri
     {
         if (alloc_vars[get_num_var (node->right->name)] == 0)
         {
-            fprintf (file, "%%%sp = alloca double, align 8\n", node->right->name);
+            print_alloca_var (file, node->right->name);
             alloc_vars[get_num_var(node->right->name)] = 1;
         }
 
@@ -182,7 +182,7 @@ Error print_input_output_return (const Node* node, int* alloc_vars, bool* is_pri
 
     if ((int) node->value == PRINT)
     {
-        fprintf (file, "%%%d = load double, double* %%%sp, align 8\n", func->curr_var_id, node->right->name);
+        print_load_reg_var (file, func->curr_var_id, node->right->name);
         func->curr_var_id++;
         fprintf (file, "%%%d = ", func->curr_var_id);
         fprintf (file, LLVM_CALL_PRINTF, func->curr_var_id - 1);
@@ -193,7 +193,7 @@ Error print_input_output_return (const Node* node, int* alloc_vars, bool* is_pri
 
     if ((int) node->value == RET)
     {
-        fprintf (file, "%%%d = load double, double* %%%sp, align 8\n", func->curr_var_id, node->right->name);
+        print_load_reg_var (file, func->curr_var_id, node->right->name);
         fprintf (file, "ret double %%%d\n", func->curr_var_id);
         func->curr_var_id++;
         *is_print = true;
@@ -219,12 +219,12 @@ Error print_assign (const Node* node, bool* is_print, int* alloc_vars, Function*
 
     if (alloc_vars[get_num_var (node->right->name)] == 0)
     {
-        fprintf (file, "%%%sp = alloca double, align 8\n", node->right->name);
+        print_alloca_var (file, node->right->name);
         alloc_vars[get_num_var(node->right->name)] = 1;
     }
 
-    fprintf (file, "%%%d = load double, double* %%%d, align 8\n", func->curr_var_id, var);
-    fprintf (file, "store double %%%d, double* %%%sp, align 8\n", func->curr_var_id, node->right->name);
+    print_load_reg_reg (file, func->curr_var_id, var);
+    print_store_reg_var (file, func->curr_var_id, node->right->name);
     func->curr_var_id++;
 
     RETURN_ERROR(CORRECT, "");
@@ -247,10 +247,10 @@ Error print_expression (const Node* node, Function* func, int* var, FILE* file)
         error = print_expression (node->right, func, &var2, file);
         PARSE_ERROR_WITHOUT_TREE(error);
 
-        fprintf (file, "%%%d = load double, double* %%%d, align 8\n", func->curr_var_id, var1);
+        print_load_reg_reg (file, func->curr_var_id, var1);
         var1 = func->curr_var_id;
         func->curr_var_id++;
-        fprintf (file, "%%%d = load double, double* %%%d, align 8\n", func->curr_var_id, var2);
+        print_load_reg_reg (file, func->curr_var_id, var2);
         var2 = func->curr_var_id;
         func->curr_var_id++;
 
@@ -269,8 +269,8 @@ Error print_expression (const Node* node, Function* func, int* var, FILE* file)
         fprintf (file, "double %%%d, %%%d\n", var1, var2);
 
         *var = func->curr_var_id;
-        fprintf (file, "%%%d = alloca double, align 8\n", func->curr_var_id);
-        fprintf (file, "store double %%%d, double* %%%d, align 8\n", func->curr_var_id - 1, func->curr_var_id);
+        print_alloca_reg (file, func->curr_var_id);
+        print_store_reg_reg (file, func->curr_var_id - 1, func->curr_var_id);
         func->curr_var_id++;
 
         RETURN_ERROR(CORRECT, "");
@@ -278,10 +278,10 @@ Error print_expression (const Node* node, Function* func, int* var, FILE* file)
 
     if (node->type == VAR)
     {
-        fprintf (file, "%%%d = alloca double, align 8\n", func->curr_var_id);
+        print_alloca_reg (file, func->curr_var_id);
         func->curr_var_id++;
-        fprintf (file, "%%%d = load double, double* %%%sp, align 8\n", func->curr_var_id, node->name);
-        fprintf (file, "store double %%%d, double* %%%d, align 8\n", func->curr_var_id, func->curr_var_id - 1);
+        print_load_reg_var (file, func->curr_var_id, node->name);
+        print_store_reg_reg (file, func->curr_var_id, func->curr_var_id - 1);
         *var = func->curr_var_id - 1;
         func->curr_var_id++;
         RETURN_ERROR(CORRECT, "");
@@ -289,8 +289,8 @@ Error print_expression (const Node* node, Function* func, int* var, FILE* file)
 
     if (node->type == NUM)
     {
-        fprintf (file, "%%%d = alloca double, align 8\n", func->curr_var_id);
-        fprintf (file, "store double 0x%zX, double* %%%d, align 8\n", (*(uint64_t*) &(node->value)), func->curr_var_id);
+        print_alloca_reg (file, func->curr_var_id);
+        print_store_num_reg (file, node->value, func->curr_var_id);
         *var = func->curr_var_id;
         func->curr_var_id++;
         RETURN_ERROR(CORRECT, "");
@@ -322,9 +322,9 @@ Error print_func_call (const Node* node, int* var, Function* func, FILE* file)
 
     fprintf (file, ")\n");
 
-    fprintf (file, "%%%d = alloca double, align 8\n", func->curr_var_id);
+    print_alloca_reg (file, func->curr_var_id);
     *var = func->curr_var_id;
-    fprintf (file, "store double %%%d, double* %%%d, align 8\n", func->curr_var_id - 1, func->curr_var_id);
+    print_store_reg_reg (file, func->curr_var_id - 1, func->curr_var_id);
     func->curr_var_id++;
 
     RETURN_ERROR(CORRECT, "");
@@ -337,7 +337,7 @@ Error print_args_call_load (const Node* node, Function* func, FILE* file)
 
     Error error = {};
 
-    fprintf (file, "%%%d = load double, double* %%%sp, align 8\n", func->curr_var_id, node->left->name);
+    print_load_reg_var (file, func->curr_var_id, node->left->name);
     func->curr_var_id++;
     
     error = print_args_call_load (node->right, func, file);
@@ -383,10 +383,10 @@ Error print_if (const Node* node, IfWhileId* if_while_id, bool* is_print, int* a
     error = print_expression (node->left->right, func, &var2, file);
     PARSE_ERROR_WITHOUT_TREE(error);
 
-    fprintf (file, "%%%d = load double, double* %%%d, align 8\n", func->curr_var_id, var1);
+    print_load_reg_reg (file, func->curr_var_id, var1);
     var1 = func->curr_var_id;
     func->curr_var_id++;
-    fprintf (file, "%%%d = load double, double* %%%d, align 8\n", func->curr_var_id, var2);
+    print_load_reg_reg (file, func->curr_var_id, var2);
     var2 = func->curr_var_id;
     func->curr_var_id++;
 
@@ -435,10 +435,10 @@ Error print_while (const Node* node, IfWhileId* if_while_id, bool* is_print, int
     error = print_expression (node->left->right, func, &var2, file);
     PARSE_ERROR_WITHOUT_TREE(error);
 
-    fprintf (file, "%%%d = load double, double* %%%d, align 8\n", func->curr_var_id, var1);
+    print_load_reg_reg (file, func->curr_var_id, var1);
     var1 = func->curr_var_id;
     func->curr_var_id++;
-    fprintf (file, "%%%d = load double, double* %%%d, align 8\n", func->curr_var_id, var2);
+    print_load_reg_reg (file, func->curr_var_id, var2);
     var2 = func->curr_var_id;
     func->curr_var_id++;
 
@@ -460,24 +460,44 @@ Error print_while (const Node* node, IfWhileId* if_while_id, bool* is_print, int
     RETURN_ERROR(CORRECT, "");
 }
 
-Error print_store_var (const char* var_name, Function* func, FILE* file)
+void print_store_num_reg (FILE* file, double num, int reg)
 {
-    if (!var_name)
-        RETURN_ERROR(NULL_POINTER, "Null pointer of name of var");
-    if (!file)
-        RETURN_ERROR(NULL_POINTER, "Null pointer of file");
-
-    fprintf (file, "store double %%%d, double* %%%s, allign 8\n", func->curr_var_id - 1, var_name);
-    RETURN_ERROR(CORRECT, "");
+    fprintf (file, "store double 0x%zX, double* %%%d, align 8\n", (*(uint64_t*) &num), reg);
 }
 
-Error print_store_num (double num, Function* func, FILE* file)
+void print_load_reg_reg (FILE* file, int reg1, int reg2)
 {
-    if (!file)
-        RETURN_ERROR(NULL_POINTER, "Null pointer of file");
+    fprintf (file, "%%%d = load double, double* %%%d, align 8\n", reg1, reg2);
+}
 
-    fprintf (file, "store double 0x%zX, double* %%%d, allign 8\n", (*(uint64_t*) &num), func->curr_var_id - 1);
-    RETURN_ERROR(CORRECT, "");
+void print_load_reg_var (FILE* file, int reg, const char* var)
+{
+    fprintf (file, "%%%d = load double, double* %%%sp, align 8\n", reg, var);
+}
+
+void print_store_reg_reg (FILE* file, int reg1, int reg2)
+{
+    fprintf (file, "store double %%%d, double* %%%d, align 8\n", reg1, reg2);
+}
+
+void print_store_reg_var (FILE* file, int reg, const char* var)
+{
+    fprintf (file, "store double %%%d, double* %%%sp, align 8\n", reg, var);
+}
+
+void print_store_var_var (FILE* file, const char* var1, const char* var2)
+{
+    fprintf (file, "store double %%%s, double* %%%sp, align 8\n", var1, var2);
+}
+
+void print_alloca_reg (FILE* file, int reg)
+{
+    fprintf (file, "%%%d = alloca double, align 8\n", reg);
+}
+
+void print_alloca_var (FILE* file, const char* var)
+{
+    fprintf (file, "%%%sp = alloca double, align 8\n", var);
 }
 
 int get_num_var (const char* name)
